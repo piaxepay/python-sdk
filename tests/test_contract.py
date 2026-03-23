@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT_DIR / "src"))
 from piaxis_sdk import PiaxisClient  # noqa: E402
 
 
-FIXTURES = json.loads((ROOT_DIR.parent / "contracts" / "payment-api-fixtures.json").read_text())
+FIXTURES = json.loads((ROOT_DIR / "contracts" / "payment-api-fixtures.json").read_text())
 
 
 class FakeResponse:
