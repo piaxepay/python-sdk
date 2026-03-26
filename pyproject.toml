@@ -29,7 +29,7 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/piaxepay/python-sdk"
-Documentation = "https://docs.gopiaxis.com/api/payments/"
+Documentation = "https://api.gopiaxis.com/api/docs/"
 Repository = "https://github.com/piaxepay/python-sdk"
 Issues = "https://github.com/piaxepay/python-sdk/issues"
 

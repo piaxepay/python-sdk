@@ -39,5 +39,5 @@ print(authorize_url)
 
 ## Related Resources
 
-- API docs: `https://docs.gopiaxis.com/api/payments/`
+- API docs: `https://api.gopiaxis.com/api/docs/`
 - TypeScript SDK: `https://github.com/piaxepay/typescript-sdk`

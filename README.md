@@ -4,7 +4,7 @@ Official Python SDK for the Piaxis partner/payments API.
 
 - Package: `piaxis-sdk`
 - Repository: `https://github.com/piaxepay/python-sdk`
-- REST API docs: `https://docs.gopiaxis.com/api/payments/`
+- REST API docs: `https://api.gopiaxis.com/api/docs/`
 - TypeScript SDK: `https://github.com/piaxepay/typescript-sdk`
 
 ## What this SDK covers
@@ -21,7 +21,7 @@ It currently covers:
 - Escrow disbursements
 - Shared transport concerns like auth headers, timeouts, and structured API errors
 
-It does not attempt to wrap every backend endpoint in `piaxis-api`, such as internal dashboard, admin, or other non-public surfaces. For fields or endpoints not yet promoted into the SDK surface, use the raw REST documentation at `https://docs.gopiaxis.com/api/payments/`.
+It does not attempt to wrap every backend endpoint in `piaxis-api`, such as internal dashboard, admin, or other non-public surfaces. For fields or endpoints not yet promoted into the SDK surface, use the raw REST documentation at `https://api.gopiaxis.com/api/docs/`.
 
 ## Install
 
@@ -327,4 +327,4 @@ This sends:
 - Disbursement example: `https://github.com/piaxepay/python-sdk/blob/main/examples/disbursement_flow.py`
 - Sandbox onboarding: `https://github.com/piaxepay/python-sdk/blob/main/SANDBOX_ONBOARDING.md`
 - Repository architecture: `https://github.com/piaxepay/python-sdk/blob/main/ARCHITECTURE.md`
-- REST API docs: `https://docs.gopiaxis.com/api/payments/`
+- REST API docs: `https://api.gopiaxis.com/api/docs/`
