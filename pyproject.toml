@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "piaxis-sdk"
-version = "0.2.1"
+version = "0.2.2"
 description = "Official Python SDK for the Piaxis partner API"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -30,6 +30,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/piaxepay/python-sdk"
 Documentation = "https://api.gopiaxis.com/api/docs/"
+Package = "https://pypi.org/project/piaxis-sdk/"
 Repository = "https://github.com/piaxepay/python-sdk"
 Issues = "https://github.com/piaxepay/python-sdk/issues"
 

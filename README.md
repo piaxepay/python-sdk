@@ -3,6 +3,7 @@
 Official Python SDK for the Piaxis partner/payments API.
 
 - Package: `piaxis-sdk`
+- PyPI: `https://pypi.org/project/piaxis-sdk/`
 - Repository: `https://github.com/piaxepay/python-sdk`
 - REST API docs: `https://api.gopiaxis.com/api/docs/`
 - TypeScript SDK: `https://github.com/piaxepay/typescript-sdk`
