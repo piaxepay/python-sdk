@@ -30,6 +30,8 @@ authorize_url = client.build_authorize_url(
 print(authorize_url)
 ```
 
+`redirect_uri` values used in sandbox OAuth tests must already be registered for the merchant. If you use the SDK's browserless `authorize_test(...)` helper, treat it as a merchant-admin-only test tool rather than a public client flow.
+
 ## Example Flows
 
 - `examples/oauth_flow.py`

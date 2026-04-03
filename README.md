@@ -157,6 +157,7 @@ print(payment)
 ```
 
 If you want to test the authorize step without a browser redirect, use `authorize_test(...)`.
+That helper is for merchant-controlled testing only: the `redirect_uri` must already be registered for the merchant, and the `x-test-request` bootstrap path is only meant for merchant owners/admins in controlled environments.
 
 ## Escrow flow
 
@@ -297,7 +298,7 @@ This sends:
 | Capability | Python method | REST endpoint |
 | --- | --- | --- |
 | Build authorize URL | `build_authorize_url(...)` | `GET /authorize` |
-| Test authorize redirect | `authorize_test(...)` | `GET /authorize` with `x-test-request: true` |
+| Test authorize redirect | `authorize_test(...)` | `GET /authorize` with `x-test-request: true` (merchant-controlled testing only) |
 | Exchange OAuth token | `exchange_token(...)` | `POST /token` |
 | Request OTP | `request_otp(...)` | `POST /request-otp` |
 | Create payment | `create_payment(...)` | `POST /payments/create` |
