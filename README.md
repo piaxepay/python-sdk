@@ -180,6 +180,22 @@ with PiaxisClient.from_env() as client:
             "amount": "50000",
             "currency_code": "UGX",
             "payment_method": "mtn",
+            "external_order_id": "order-789",
+            "metadata": {"channel": "marketplace"},
+            "allocations": [
+                {
+                    "allocation_key": "seller-alpha",
+                    "amount": "20000",
+                    "seller_reference": "seller-001",
+                    "description": "Alpha seller settlement",
+                },
+                {
+                    "allocation_key": "seller-beta",
+                    "amount": "30000",
+                    "seller_reference": "seller-002",
+                    "description": "Beta seller settlement",
+                },
+            ],
             "user_info": {
                 "email": "buyer@example.com",
                 "phone_number": "+256700000000",
@@ -193,10 +209,24 @@ with PiaxisClient.from_env() as client:
     print(
         client.release_escrow(
             escrow["id"],
-            payload={"force": True, "reason": "Sandbox manual release"},
+            payload={
+                "allocation_keys": ["seller-alpha"],
+                "amount": "20000",
+                "reason": "Sandbox partial release for seller alpha",
+            },
         )
     )
+
+    print(escrow["allocation_summary"])
 ```
+
+For marketplace checkouts, keep ``receiver_id`` set to the merchant account and represent
+seller or fulfillment slices with ``allocations``. The escrow still belongs to the
+merchant; allocations let you release or reverse only the affected slices.
+
+Merchants should surface those allocation balances and actions directly on the order page
+where the buyer placed the order so users can review what is still held versus what has
+already been released or reversed.
 
 ## Disbursement flows
 

@@ -164,6 +164,23 @@ class ContractTests(unittest.TestCase):
                 "amount": "50000",
                 "currency_code": "UGX",
                 "payment_method": "mtn",
+                "external_order_id": "order-789",
+                "metadata": {"channel": "marketplace"},
+                "allocations": [
+                    {
+                        "allocation_key": "seller-alpha",
+                        "amount": "20000",
+                        "seller_reference": "seller-001",
+                        "description": "Alpha seller settlement",
+                        "metadata": {"sku": "SKU-ALPHA"},
+                    },
+                    {
+                        "allocation_key": "seller-beta",
+                        "amount": "30000",
+                        "seller_reference": "seller-002",
+                        "description": "Beta seller settlement",
+                    },
+                ],
                 "user_info": {
                     "email": "buyer@example.com",
                     "phone_number": "+256700000000",
@@ -176,7 +193,12 @@ class ContractTests(unittest.TestCase):
         status = client.get_escrow_status(created["id"])
         released = client.release_escrow(
             created["id"],
-            payload={"force": True, "reason": "Manual merchant release"},
+            payload={
+                "force": True,
+                "reason": "Manual merchant release",
+                "amount": "20000",
+                "allocation_keys": ["seller-alpha"],
+            },
         )
         fulfilled = client.fulfill_escrow_term(
             created["id"],
@@ -192,7 +214,11 @@ class ContractTests(unittest.TestCase):
         )
         reversed_escrow = client.reverse_escrow(
             created["id"],
-            {"reason": "Buyer cancelled order"},
+            {
+                "reason": "Buyer cancelled order",
+                "amount": "30000",
+                "allocation_keys": ["seller-beta"],
+            },
         )
         dispute = client.dispute_escrow(
             created["id"],
@@ -200,11 +226,25 @@ class ContractTests(unittest.TestCase):
         )
 
         self.assertEqual(fetched["currency_code"], "UGX")
+        self.assertEqual(fetched["balance_escrow_in"], "50000.00")
+        self.assertEqual(fetched["allocations"][0]["allocation_key"], "seller-alpha")
+        self.assertEqual(fetched["allocation_summary"]["pending_count"], 2)
         self.assertEqual(status["buyer_info"]["phone_number"], "+256700000000")
         self.assertEqual(released["status"], "released")
+        self.assertEqual(released["amount"], "20000.00")
+        self.assertEqual(released["allocation_keys"], ["seller-alpha"])
         self.assertEqual(fulfilled["requires_other_party"], True)
         self.assertEqual(reversed_escrow["status"], "reversed")
+        self.assertEqual(reversed_escrow["allocation_keys"], ["seller-beta"])
         self.assertEqual(dispute["initiator_role"], "sender")
+        self.assertEqual(fake_httpx.calls[0]["json"]["external_order_id"], "order-789")
+        self.assertEqual(
+            fake_httpx.calls[0]["json"]["allocations"][0]["allocation_key"], "seller-alpha"
+        )
+        self.assertEqual(fake_httpx.calls[3]["json"]["amount"], "20000")
+        self.assertEqual(fake_httpx.calls[3]["json"]["allocation_keys"], ["seller-alpha"])
+        self.assertEqual(fake_httpx.calls[5]["json"]["amount"], "30000")
+        self.assertEqual(fake_httpx.calls[5]["json"]["allocation_keys"], ["seller-beta"])
         self.assertEqual(fake_httpx.calls[0]["json"]["terms"][0]["type"], "manual_release")
 
     def test_disbursement_helpers_match_contract(self) -> None:

@@ -18,6 +18,14 @@ class TermInput(TypedDict, total=False):
     expiry_date: str | None
 
 
+class EscrowAllocationInput(TypedDict, total=False):
+    allocation_key: str
+    amount: Amount
+    seller_reference: str
+    description: str
+    metadata: dict[str, Any]
+
+
 class DisbursementRecipientInput(TypedDict, total=False):
     recipient_id: str
     email: str
@@ -54,12 +62,17 @@ class EscrowCreateInput(TypedDict, total=False):
     external_user_id: str
     user_info: dict[str, Any]
     user_location: UserLocationInput
+    external_order_id: str
+    allocations: list[EscrowAllocationInput]
+    metadata: dict[str, Any]
 
 
 class EscrowReleaseInput(TypedDict, total=False):
     verification_code: str
     verification_method: str
     user_info: dict[str, Any]
+    amount: Amount
+    allocation_keys: list[str]
     force: bool
     reason: str
 
@@ -76,6 +89,8 @@ class ReverseEscrowInput(TypedDict, total=False):
     verification_code: str
     verification_method: str
     user_info: dict[str, Any]
+    amount: Amount
+    allocation_keys: list[str]
 
 
 class EscrowDisputeInput(TypedDict, total=False):
