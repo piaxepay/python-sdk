@@ -43,6 +43,9 @@ class OAuthAuthorizeParams(TypedDict):
     merchant_id: str
     external_user_id: str
     redirect_uri: str
+    state: str | None
+    code_challenge: str | None
+    code_challenge_method: str | None
 
 
 class TokenExchangeInput(TypedDict, total=False):
@@ -51,6 +54,8 @@ class TokenExchangeInput(TypedDict, total=False):
     redirect_uri: str
     client_id: str
     client_secret: str
+    code_verifier: str
+    refresh_token: str
 
 
 class EscrowCreateInput(TypedDict, total=False):

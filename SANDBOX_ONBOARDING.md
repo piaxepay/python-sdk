@@ -12,25 +12,32 @@ pip install piaxis-sdk
 
 ```bash
 export PIAXIS_API_KEY="your_sandbox_api_key"
+export PIAXIS_OAUTH_CLIENT_ID="your_oauth_client_id"
 export PIAXIS_API_BASE_URL="https://sandbox.api.gopiaxis.com/api"
 ```
+
+The SDK enforces HTTPS base URLs except for explicit localhost testing.
 
 ## Smoke Test
 
 ```python
-from piaxis_sdk import PiaxisClient
+from piaxis_sdk import PiaxisClient, generate_pkce_pair
 
 client = PiaxisClient.from_env()
+pkce = generate_pkce_pair()
 authorize_url = client.build_authorize_url(
     merchant_id="merchant-123",
     external_user_id="external-user-789",
     redirect_uri="https://merchant.example.com/oauth/callback",
+    state="sandbox-state-123",
+    code_challenge=pkce["code_challenge"],
+    code_challenge_method=pkce["code_challenge_method"],
 )
 
 print(authorize_url)
 ```
 
-`redirect_uri` values used in sandbox OAuth tests must already be registered for the merchant. If you use the SDK's browserless `authorize_test(...)` helper, treat it as a merchant-admin-only test tool rather than a public client flow.
+`redirect_uri` values used in sandbox OAuth tests must already be registered for the merchant and should use HTTPS unless you are targeting localhost during development. If you use the SDK's browserless `authorize_test(...)` helper, treat it as a merchant-admin-only test tool rather than a public client flow.
 
 ## Example Flows
 

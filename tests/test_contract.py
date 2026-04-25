@@ -9,7 +9,7 @@ from urllib.parse import urlparse, parse_qs
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
-from piaxis_sdk import PiaxisClient  # noqa: E402
+from piaxis_sdk import PiaxisClient, generate_pkce_pair, verify_webhook_signature  # noqa: E402
 
 
 FIXTURES = json.loads((ROOT_DIR / "contracts" / "payment-api-fixtures.json").read_text())
@@ -38,13 +38,14 @@ class FakeHttpxClient:
         self.responses = list(responses)
         self.calls: list[dict] = []
 
-    def request(self, method, path, params=None, json=None, headers=None, timeout=None):
+    def request(self, method, path, params=None, json=None, data=None, headers=None, timeout=None):
         self.calls.append(
             {
                 "method": method,
                 "path": path,
                 "params": params,
                 "json": json,
+                "data": data,
                 "headers": headers or {},
                 "timeout": timeout,
             }
@@ -69,27 +70,48 @@ class ContractTests(unittest.TestCase):
             merchant_id="merchant-123",
             external_user_id="external-user-789",
             redirect_uri="https://merchant.example.com/oauth/callback",
+            state="state-123",
+            code_challenge="challenge-abc",
+            code_challenge_method="S256",
         )
         authorize_response = client.authorize_test(
             merchant_id="merchant-123",
             external_user_id="external-user-789",
             redirect_uri="https://merchant.example.com/oauth/callback",
+            state="state-123",
+            code_challenge="challenge-abc",
+            code_challenge_method="S256",
         )
         token_response = client.exchange_token(
             code="auth-code-123",
             redirect_uri="https://merchant.example.com/oauth/callback",
             client_id="client_123",
             client_secret="secret_456",
+            code_verifier="verifier-789",
         )
 
         parsed = urlparse(authorize_url)
         self.assertEqual(parsed.path, "/api/authorize")
         self.assertEqual(parse_qs(parsed.query)["merchant_id"], ["merchant-123"])
+        self.assertEqual(parse_qs(parsed.query)["state"], ["state-123"])
         self.assertEqual(authorize_response["redirect_url"], FIXTURES["authorize_test"]["response"]["redirect_url"])
         self.assertEqual(token_response["access_token"], FIXTURES["token"]["response"]["access_token"])
         self.assertEqual(fake_httpx.calls[0]["headers"]["x-test-request"], "true")
         self.assertNotIn("api-key", fake_httpx.calls[0]["headers"])
-        self.assertEqual(fake_httpx.calls[1]["params"]["grant_type"], "authorization_code")
+        self.assertEqual(fake_httpx.calls[1]["data"]["grant_type"], "authorization_code")
+        self.assertEqual(fake_httpx.calls[1]["data"]["code_verifier"], "verifier-789")
+
+    def test_auth_helpers_reject_insecure_redirect_uris(self) -> None:
+        client = PiaxisClient(base_url="https://sandbox.api.gopiaxis.com/api")
+
+        with self.assertRaisesRegex(
+            ValueError, "redirect_uri must use HTTPS unless targeting localhost."
+        ):
+            client.build_authorize_url(
+                merchant_id="merchant-123",
+                external_user_id="external-user-789",
+                redirect_uri="http://merchant.example.com/oauth/callback",
+            )
 
     def test_payment_and_otp_helpers_match_contract(self) -> None:
         client = PiaxisClient(
@@ -138,7 +160,7 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(payment_details["payment_method"], "mtn")
         self.assertEqual(payment_list["results"][0]["payment_id"], "pay_123")
         self.assertEqual(fake_httpx.calls[0]["headers"]["api-key"], "test_api_key")
-        self.assertEqual(fake_httpx.calls[1]["params"]["mfa_code"], "654321")
+        self.assertEqual(fake_httpx.calls[1]["json"]["mfa_code"], "654321")
 
     def test_escrow_helpers_match_contract(self) -> None:
         client = PiaxisClient(
@@ -330,6 +352,39 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(escrow_listing["results"][0]["status"], "pending")
         self.assertEqual(released["released_count"], 1)
         self.assertEqual(escrow_cancelled["cancellation_reason"], "Merchant cancelled batch")
+
+    def test_security_helpers_cover_pkce_and_webhook_verification(self) -> None:
+        pair = generate_pkce_pair()
+        self.assertEqual(pair["code_challenge_method"], "S256")
+        self.assertTrue(pair["code_verifier"])
+        self.assertTrue(pair["code_challenge"])
+
+        body = b'{"event":"payment.succeeded"}'
+        timestamp = "1712345678"
+
+        import hashlib
+        import hmac
+
+        legacy_signature = hmac.new(b"secret", body, hashlib.sha256).hexdigest()
+        self.assertTrue(
+            verify_webhook_signature(body, secret="secret", signature=legacy_signature)
+        )
+
+        signed = f"{timestamp}.".encode("utf-8") + body
+        v2_signature = hmac.new(b"secret", signed, hashlib.sha256).hexdigest()
+        self.assertTrue(
+            verify_webhook_signature(
+                body,
+                secret="secret",
+                signature_v2=v2_signature,
+                timestamp=timestamp,
+                tolerance_seconds=10**9,
+            )
+        )
+
+    def test_client_rejects_non_https_base_url_outside_localhost(self) -> None:
+        with self.assertRaises(ValueError):
+            PiaxisClient(base_url="http://api.example.com/api")
 
 
 if __name__ == "__main__":

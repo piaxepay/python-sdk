@@ -55,7 +55,7 @@ class EscrowDisbursementsResource:
         self,
         disbursement_id: str,
         *,
-        force: bool = True,
+        force: bool = False,
         reason: str | None = None,
         escrow_ids: list[str] | None = None,
         request_options: PiaxisRequestOptions | None = None,

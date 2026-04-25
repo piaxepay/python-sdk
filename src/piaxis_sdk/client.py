@@ -38,6 +38,7 @@ class PiaxisClient:
         *,
         api_key: str | None = None,
         access_token: str | None = None,
+        piaxis_client_id: str | None = None,
         base_url: str = DEFAULT_BASE_URL,
         timeout: float = 30.0,
         app_name: str | None = None,
@@ -47,6 +48,7 @@ class PiaxisClient:
             base_url=base_url,
             api_key=api_key,
             access_token=access_token,
+            piaxis_client_id=piaxis_client_id,
             timeout=timeout,
             app_name=app_name,
             app_version=app_version,
@@ -67,6 +69,7 @@ class PiaxisClient:
         source = env or os.environ
         api_key = source.get("PIAXIS_API_KEY")
         access_token = source.get("PIAXIS_ACCESS_TOKEN")
+        piaxis_client_id = source.get("PIAXIS_CLIENT_ID") or source.get("PIAXIS_OAUTH_CLIENT_ID")
         base_url = source.get("PIAXIS_API_BASE_URL", DEFAULT_BASE_URL)
 
         if not api_key and not access_token:
@@ -77,6 +80,7 @@ class PiaxisClient:
         return cls(
             api_key=api_key,
             access_token=access_token,
+            piaxis_client_id=piaxis_client_id,
             base_url=base_url,
             **overrides,
         )
@@ -135,11 +139,17 @@ class PiaxisClient:
         merchant_id: str,
         external_user_id: str,
         redirect_uri: str,
+        state: str | None = None,
+        code_challenge: str | None = None,
+        code_challenge_method: str | None = None,
     ) -> str:
         payload: OAuthAuthorizeParams = {
             "merchant_id": merchant_id,
             "external_user_id": external_user_id,
             "redirect_uri": redirect_uri,
+            "state": state,
+            "code_challenge": code_challenge,
+            "code_challenge_method": code_challenge_method,
         }
         return self.auth.build_authorize_url(payload)
 
@@ -149,12 +159,18 @@ class PiaxisClient:
         merchant_id: str,
         external_user_id: str,
         redirect_uri: str,
+        state: str | None = None,
+        code_challenge: str | None = None,
+        code_challenge_method: str | None = None,
         request_options: PiaxisRequestOptions | None = None,
     ) -> Any:
         payload: OAuthAuthorizeParams = {
             "merchant_id": merchant_id,
             "external_user_id": external_user_id,
             "redirect_uri": redirect_uri,
+            "state": state,
+            "code_challenge": code_challenge,
+            "code_challenge_method": code_challenge_method,
         }
         return self.auth.authorize_test(payload, request_options=request_options)
 
@@ -166,6 +182,7 @@ class PiaxisClient:
         client_id: str,
         client_secret: str,
         grant_type: str = "authorization_code",
+        code_verifier: str | None = None,
         request_options: PiaxisRequestOptions | None = None,
     ) -> Any:
         payload: TokenExchangeInput = {
@@ -174,8 +191,25 @@ class PiaxisClient:
             "redirect_uri": redirect_uri,
             "client_id": client_id,
             "client_secret": client_secret,
+            "code_verifier": code_verifier,
         }
         return self.auth.exchange_token(payload, request_options=request_options)
+
+    def refresh_token(
+        self,
+        *,
+        refresh_token: str,
+        client_id: str,
+        client_secret: str,
+        request_options: PiaxisRequestOptions | None = None,
+    ) -> Any:
+        payload: TokenExchangeInput = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+            "client_id": client_id,
+            "client_secret": client_secret,
+        }
+        return self.auth.refresh_token(payload, request_options=request_options)
 
     def create_escrow(
         self,
@@ -365,7 +399,7 @@ class PiaxisClient:
         self,
         disbursement_id: str,
         *,
-        force: bool = True,
+        force: bool = False,
         reason: str | None = None,
         escrow_ids: list[str] | None = None,
         request_options: PiaxisRequestOptions | None = None,

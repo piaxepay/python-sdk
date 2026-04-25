@@ -17,10 +17,12 @@ class PaymentsResource:
         mfa_code: str | None = None,
         request_options: PiaxisRequestOptions | None = None,
     ) -> Any:
+        body = dict(payload)
+        if mfa_code is not None:
+            body["mfa_code"] = mfa_code
         return self._http.post(
             "/payments/create",
-            body=payload,
-            query={"mfa_code": mfa_code},
+            body=body,
             request_options=request_options,
         )
 
