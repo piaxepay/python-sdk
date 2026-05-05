@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from urllib.parse import urlparse
+import traceback
+from urllib.parse import urlparse, urlunparse
 from typing import Any, Mapping
 
 import httpx
 
 from .errors import PiaxisApiError
-from .types import PiaxisRequestOptions
+from .types import PiaxisErrorReportingOptions, PiaxisRequestOptions
 
 
 class PiaxisHttpClient:
@@ -20,6 +21,7 @@ class PiaxisHttpClient:
         timeout: float = 30.0,
         app_name: str | None = None,
         app_version: str | None = None,
+        error_reporting: PiaxisErrorReportingOptions | None = None,
     ) -> None:
         self._base_url = self._validate_base_url(base_url)
         self._api_key = api_key
@@ -28,6 +30,11 @@ class PiaxisHttpClient:
         self._default_timeout = timeout
         self._app_name = app_name
         self._app_version = app_version
+        self._error_reporting = error_reporting or {}
+        self._error_reporting_endpoint = self._error_reporting.get(
+            "endpoint",
+            self._default_error_reporting_endpoint(self._base_url),
+        )
         self._client = httpx.Client(base_url=self._base_url, timeout=timeout)
 
     def close(self) -> None:
@@ -105,21 +112,25 @@ class PiaxisHttpClient:
         else:
             request_kwargs["json"] = body
 
-        response = self._client.request(method, normalized_path, **request_kwargs)
-
         try:
-            payload = response.json()
-        except ValueError:
-            payload = response.text
+            response = self._client.request(method, normalized_path, **request_kwargs)
 
-        if response.is_error:
-            raise PiaxisApiError.from_response(
-                status_code=response.status_code,
-                payload=payload,
-                request_id=response.headers.get("x-request-id"),
-            )
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = response.text
 
-        return payload
+            if response.is_error:
+                raise PiaxisApiError.from_response(
+                    status_code=response.status_code,
+                    payload=payload,
+                    request_id=response.headers.get("x-request-id"),
+                )
+
+            return payload
+        except Exception as exc:
+            self._report_sdk_error(exc, method=method, path=normalized_path)
+            raise
 
     def _build_headers(self, headers: Mapping[str, str] | None = None) -> dict[str, str]:
         merged = {
@@ -164,3 +175,57 @@ class PiaxisHttpClient:
         if not query:
             return None
         return {key: value for key, value in query.items() if value is not None}
+
+    def _report_sdk_error(self, exc: Exception, *, method: str, path: str) -> None:
+        if not self._error_reporting.get("enabled"):
+            return
+
+        status_code = exc.status_code if isinstance(exc, PiaxisApiError) else None
+        severity = "warning" if status_code is not None and status_code < 500 else "error"
+        client_name = (
+            f"{self._app_name}/{self._app_version}"
+            if self._app_name and self._app_version
+            else self._app_name or "piaxis-python-sdk"
+        )
+        stack = (
+            "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            if self._error_reporting.get("include_stack")
+            else None
+        )
+
+        payload = {
+            "source": "python_sdk",
+            "severity": severity,
+            "name": type(exc).__name__[:255],
+            "message": str(exc)[:4000],
+            "stack": stack[:20000] if stack else None,
+            "path": path[:512],
+            "platform": "python",
+            "user_agent": client_name,
+            "metadata": {
+                **self._error_reporting.get("metadata", {}),
+                "method": method,
+                "status": status_code,
+                "code": exc.code if isinstance(exc, PiaxisApiError) else None,
+                "request_id": exc.request_id if isinstance(exc, PiaxisApiError) else None,
+            },
+        }
+
+        try:
+            self._client.post(
+                self._error_reporting_endpoint,
+                json=payload,
+                headers={"Accept": "application/json"},
+                timeout=2.0,
+            )
+        except Exception:
+            return
+
+    def _default_error_reporting_endpoint(self, base_url: str) -> str:
+        parsed = urlparse(base_url)
+        path = parsed.path.rstrip("/")
+        if path.endswith("/api"):
+            path = f"{path[:-4]}/monitoring/client-errors"
+        else:
+            path = "/monitoring/client-errors"
+        return urlunparse((parsed.scheme, parsed.netloc, path, "", "", ""))

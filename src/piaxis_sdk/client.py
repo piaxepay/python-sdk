@@ -20,6 +20,7 @@ from .types import (
     EscrowReleaseInput,
     FulfillEscrowTermInput,
     MerchantPaymentsListParams,
+    PiaxisErrorReportingOptions,
     OAuthAuthorizeParams,
     PaymentCreateInput,
     PiaxisRequestOptions,
@@ -43,6 +44,7 @@ class PiaxisClient:
         timeout: float = 30.0,
         app_name: str | None = None,
         app_version: str | None = None,
+        error_reporting: PiaxisErrorReportingOptions | None = None,
     ) -> None:
         self._http = PiaxisHttpClient(
             base_url=base_url,
@@ -52,6 +54,7 @@ class PiaxisClient:
             timeout=timeout,
             app_name=app_name,
             app_version=app_version,
+            error_reporting=error_reporting,
         )
         self.auth = AuthResource(self._http)
         self.escrows = EscrowsResource(self._http)

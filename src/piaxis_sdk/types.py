@@ -12,6 +12,13 @@ class PiaxisRequestOptions(TypedDict, total=False):
     timeout: float
 
 
+class PiaxisErrorReportingOptions(TypedDict, total=False):
+    enabled: bool
+    endpoint: str
+    include_stack: bool
+    metadata: dict[str, Any]
+
+
 class TermInput(TypedDict, total=False):
     type: str
     data: dict[str, Any]

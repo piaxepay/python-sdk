@@ -346,6 +346,11 @@ client = PiaxisClient(
     timeout=60.0,
     app_name="orders-service",
     app_version="1.4.0",
+    error_reporting={
+        "enabled": True,
+        "include_stack": False,
+        "metadata": {"environment": "production"},
+    },
 )
 
 payment = client.get_payment(
@@ -362,6 +367,10 @@ This sends:
 - `api-key` or `Authorization: Bearer ...`
 - `x-piaxis-sdk-client: orders-service/1.4.0` when `app_name` is set
 - any extra headers you pass via `request_options`
+
+When `error_reporting["enabled"]` is true, failed SDK requests are reported to
+Piaxis admin diagnostics with sanitized metadata only. Stack traces are omitted
+unless `include_stack` is explicitly enabled.
 
 ## Method map
 
