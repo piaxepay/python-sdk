@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import traceback
+from uuid import uuid4
 from urllib.parse import urlparse, urlunparse
 from typing import Any, Mapping
 
@@ -8,6 +9,14 @@ import httpx
 
 from .errors import PiaxisApiError
 from .types import PiaxisErrorReportingOptions, PiaxisRequestOptions
+
+
+_MONEY_MOVING_POST_PATHS = (
+    "/payments/create",
+    "/escrows/",
+    "/disbursements",
+    "/escrow-disbursements",
+)
 
 
 class PiaxisHttpClient:
@@ -98,9 +107,13 @@ class PiaxisHttpClient:
     ) -> Any:
         if body is not None and form is not None:
             raise ValueError("Only one of body or form may be supplied.")
-        headers = self._build_headers(request_options.get("headers") if request_options else None)
         timeout = request_options.get("timeout", self._default_timeout) if request_options else None
         normalized_path = path if path.startswith("/") else f"/{path}"
+        headers = self._build_headers(request_options.get("headers") if request_options else None)
+        if self._requires_idempotency_key(method, normalized_path) and not self._has_header(
+            headers, "X-Idempotency-Key"
+        ):
+            headers["X-Idempotency-Key"] = str(uuid4())
 
         request_kwargs: dict[str, Any] = {
             "params": self._compact_query(query),
@@ -159,6 +172,32 @@ class PiaxisHttpClient:
             merged["x-piaxis-sdk-client"] = f"{self._app_name}{version_suffix}"
 
         return merged
+
+    def _requires_idempotency_key(self, method: str, path: str) -> bool:
+        if method.upper() != "POST":
+            return False
+
+        if path in _MONEY_MOVING_POST_PATHS:
+            return True
+
+        parts = [part for part in path.strip("/").split("/") if part]
+        if len(parts) == 3 and parts[0] == "disbursements" and parts[2] == "cancel":
+            return True
+        if len(parts) == 3 and parts[0] == "escrows" and parts[2] in {"release", "reverse"}:
+            return True
+        if len(parts) == 5 and parts[0] == "escrows" and parts[2] == "terms" and parts[4] == "fulfill":
+            return True
+        if (
+            len(parts) == 3
+            and parts[0] == "escrow-disbursements"
+            and parts[2] in {"release", "cancel"}
+        ):
+            return True
+        return False
+
+    def _has_header(self, headers: Mapping[str, str], name: str) -> bool:
+        wanted = name.lower()
+        return any(key.lower() == wanted for key in headers)
 
     def _validate_base_url(self, base_url: str) -> str:
         parsed = urlparse(base_url.rstrip("/"))

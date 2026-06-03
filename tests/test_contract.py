@@ -160,7 +160,10 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(payment_details["payment_method"], "mtn")
         self.assertEqual(payment_list["results"][0]["payment_id"], "pay_123")
         self.assertEqual(fake_httpx.calls[0]["headers"]["api-key"], "test_api_key")
+        self.assertNotIn("X-Idempotency-Key", fake_httpx.calls[0]["headers"])
         self.assertEqual(fake_httpx.calls[1]["json"]["mfa_code"], "654321")
+        self.assertIn("X-Idempotency-Key", fake_httpx.calls[1]["headers"])
+        self.assertNotIn("X-Idempotency-Key", fake_httpx.calls[2]["headers"])
 
     def test_escrow_helpers_match_contract(self) -> None:
         client = PiaxisClient(
@@ -268,6 +271,13 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(fake_httpx.calls[5]["json"]["amount"], "30000")
         self.assertEqual(fake_httpx.calls[5]["json"]["allocation_keys"], ["seller-beta"])
         self.assertEqual(fake_httpx.calls[0]["json"]["terms"][0]["type"], "manual_release")
+        self.assertIn("X-Idempotency-Key", fake_httpx.calls[0]["headers"])
+        self.assertNotIn("X-Idempotency-Key", fake_httpx.calls[1]["headers"])
+        self.assertNotIn("X-Idempotency-Key", fake_httpx.calls[2]["headers"])
+        self.assertIn("X-Idempotency-Key", fake_httpx.calls[3]["headers"])
+        self.assertIn("X-Idempotency-Key", fake_httpx.calls[4]["headers"])
+        self.assertIn("X-Idempotency-Key", fake_httpx.calls[5]["headers"])
+        self.assertNotIn("X-Idempotency-Key", fake_httpx.calls[6]["headers"])
 
     def test_disbursement_helpers_match_contract(self) -> None:
         client = PiaxisClient(
@@ -352,6 +362,37 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(escrow_listing["results"][0]["status"], "pending")
         self.assertEqual(released["released_count"], 1)
         self.assertEqual(escrow_cancelled["cancellation_reason"], "Merchant cancelled batch")
+        self.assertIn("X-Idempotency-Key", fake_httpx.calls[0]["headers"])
+        self.assertNotIn("X-Idempotency-Key", fake_httpx.calls[1]["headers"])
+        self.assertNotIn("X-Idempotency-Key", fake_httpx.calls[2]["headers"])
+        self.assertIn("X-Idempotency-Key", fake_httpx.calls[3]["headers"])
+        self.assertIn("X-Idempotency-Key", fake_httpx.calls[4]["headers"])
+        self.assertNotIn("X-Idempotency-Key", fake_httpx.calls[5]["headers"])
+        self.assertNotIn("X-Idempotency-Key", fake_httpx.calls[6]["headers"])
+        self.assertIn("X-Idempotency-Key", fake_httpx.calls[7]["headers"])
+        self.assertIn("X-Idempotency-Key", fake_httpx.calls[8]["headers"])
+
+    def test_money_moving_posts_preserve_caller_idempotency_key(self) -> None:
+        client = PiaxisClient(
+            api_key="test_api_key",
+            base_url="https://sandbox.api.gopiaxis.com/api",
+        )
+        fake_httpx = FakeHttpxClient([FIXTURES["payment_create"]["response"]])
+        client._http._client = fake_httpx
+
+        client.create_payment(
+            {
+                "amount": "15000",
+                "currency": "UGX",
+                "payment_method": "mtn",
+                "user_info": {"phone_number": "+256700000000"},
+            },
+            request_options={"headers": {"X-Idempotency-Key": "merchant-key-123"}},
+        )
+
+        self.assertEqual(
+            fake_httpx.calls[0]["headers"]["X-Idempotency-Key"], "merchant-key-123"
+        )
 
     def test_security_helpers_cover_pkce_and_webhook_verification(self) -> None:
         pair = generate_pkce_pair()

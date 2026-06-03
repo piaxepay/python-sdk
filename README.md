@@ -110,6 +110,7 @@ with PiaxisClient.from_env() as client:
 Notes:
 
 - `user_info`, `products`, and `terms[*].data` follow the raw API payload shape from the REST docs.
+- Money-moving POST helpers generate `X-Idempotency-Key` automatically. Pass your own key in `request_options["headers"]` when you need a merchant-side retry key.
 - Many payment methods are asynchronous. Plan for polling and webhooks instead of assuming the create call means “completed”.
 
 ## OAuth and `piaxis_external` flow
@@ -365,6 +366,8 @@ payment = client.get_payment(
 This sends:
 
 - `api-key` or `Authorization: Bearer ...`
+- `X-piaxis-Client-ID` when `PIAXIS_CLIENT_ID`/`piaxis_client_id` is configured
+- `X-Idempotency-Key` on money-moving POST helpers unless you provide one
 - `x-piaxis-sdk-client: orders-service/1.4.0` when `app_name` is set
 - any extra headers you pass via `request_options`
 
