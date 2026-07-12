@@ -10,6 +10,7 @@ from .resources.escrows import EscrowsResource
 from .resources.escrow_disbursements import EscrowDisbursementsResource
 from .resources.otp import OtpResource
 from .resources.payments import PaymentsResource
+from .resources.shopify import ShopifyResource
 from .types import (
     DisbursementCreateInput,
     DisbursementRecipientInput,
@@ -20,6 +21,7 @@ from .types import (
     EscrowReleaseInput,
     FulfillEscrowTermInput,
     MerchantPaymentsListParams,
+    ShopifyConnectInput,
     PiaxisErrorReportingOptions,
     OAuthAuthorizeParams,
     PaymentCreateInput,
@@ -62,6 +64,7 @@ class PiaxisClient:
         self.otp = OtpResource(self._http)
         self.payments = PaymentsResource(self._http)
         self.escrow_disbursements = EscrowDisbursementsResource(self._http)
+        self.shopify = ShopifyResource(self._http)
 
     @classmethod
     def from_env(
@@ -328,6 +331,30 @@ class PiaxisClient:
         request_options: PiaxisRequestOptions | None = None,
     ) -> Any:
         return self.payments.list(params, request_options=request_options)
+
+    def connect_shopify(
+        self,
+        payload: ShopifyConnectInput,
+        *,
+        request_options: PiaxisRequestOptions | None = None,
+    ) -> Any:
+        return self.shopify.connect(payload, request_options=request_options)
+
+    def disconnect_shopify(
+        self,
+        shop_domain: str,
+        *,
+        request_options: PiaxisRequestOptions | None = None,
+    ) -> Any:
+        return self.shopify.disconnect(shop_domain, request_options=request_options)
+
+    def get_shopify_session(
+        self,
+        session_id: str,
+        *,
+        request_options: PiaxisRequestOptions | None = None,
+    ) -> Any:
+        return self.shopify.get_session(session_id, request_options=request_options)
 
     def get_disbursement(
         self,

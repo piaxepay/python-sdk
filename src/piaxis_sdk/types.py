@@ -126,6 +126,12 @@ class PaymentCreateInput(TypedDict, total=False):
     customer_pays_fees: bool
 
 
+class ShopifyConnectInput(TypedDict, total=False):
+    store_id: str
+    shop_domain: str
+    payment_mode: str  # "direct" (default) or "escrow"
+
+
 class MerchantPaymentsListParams(TypedDict, total=False):
     status: str
     payment_method: str

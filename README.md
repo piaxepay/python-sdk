@@ -375,6 +375,35 @@ When `error_reporting["enabled"]` is true, failed SDK requests are reported to
 Piaxis admin diagnostics with sanitized metadata only. Stack traces are omitted
 unless `include_stack` is explicitly enabled.
 
+## Shopify Payments App
+
+Businesses that also sell on Shopify can take checkout payments through
+Piaxis. The store owner starts the install and chooses where money goes:
+`direct` (store settlement) or `escrow` (held until release).
+
+```python
+result = client.connect_shopify(
+    {
+        "store_id": "your-piaxis-store-uuid",
+        "shop_domain": "your-shop.myshopify.com",
+        "payment_mode": "direct",
+    }
+)
+# Send the merchant's browser to Shopify's consent page:
+print(result["install_url"])
+
+# Support/reporting: check one checkout session
+session = client.get_shopify_session("session-uuid")
+print(session["status"], session["amount"], session["currency"])
+
+# Turn it off; the stored shop token is dropped immediately
+client.disconnect_shopify("your-shop.myshopify.com")
+```
+
+The integration is additive and server-gated: the platform must enable
+Shopify and the store needs the `shopify_payments` entitlement. Webhook and
+OAuth-callback endpoints are Shopify-facing and not part of this SDK.
+
 ## Method map
 
 | Capability | Python method | REST endpoint |
@@ -403,6 +432,9 @@ unless `include_stack` is explicitly enabled.
 | List escrow disbursements | `list_escrow_disbursements(...)` | `GET /escrow-disbursements` |
 | Release escrow disbursement | `release_escrow_disbursement(...)` | `POST /escrow-disbursements/{disbursement_id}/release` (`force=False` by default) |
 | Cancel escrow disbursement | `cancel_escrow_disbursement(...)` | `POST /escrow-disbursements/{disbursement_id}/cancel` |
+| Connect Shopify shop | `connect_shopify(...)` | `POST /platforms/shopify/connect` |
+| Disconnect Shopify shop | `disconnect_shopify(...)` | `DELETE /platforms/shopify/connect/{shop_domain}` |
+| Get Shopify session status | `get_shopify_session(...)` | `GET /platforms/shopify/sessions/{session_id}` |
 
 ## Examples and references
 
