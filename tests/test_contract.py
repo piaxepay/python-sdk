@@ -428,5 +428,28 @@ class ContractTests(unittest.TestCase):
             PiaxisClient(base_url="http://api.example.com/api")
 
 
+
+class TimeoutRegressionTests(unittest.TestCase):
+    def test_default_timeout_and_request_override_reach_httpx(self) -> None:
+        import httpx
+        from piaxis_sdk.http_client import PiaxisHttpClient
+
+        seen = []
+        def handler(request):
+            seen.append(request.extensions['timeout'])
+            return httpx.Response(200, json={})
+
+        client = PiaxisHttpClient(base_url='https://sandbox.api.gopiaxis.com/api', timeout=7.0)
+        client.close()
+        client._client = httpx.Client(base_url=client._base_url, transport=httpx.MockTransport(handler))
+        try:
+            client.get('/payments/one')
+            client.get('/payments/two', request_options={})
+            client.get('/payments/three', request_options={'timeout': 2.0})
+            self.assertEqual([x['read'] for x in seen], [7.0, 7.0, 2.0])
+        finally:
+            client.close()
+
+
 if __name__ == "__main__":
     unittest.main()
