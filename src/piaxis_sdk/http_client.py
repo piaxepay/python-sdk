@@ -107,7 +107,7 @@ class PiaxisHttpClient:
     ) -> Any:
         if body is not None and form is not None:
             raise ValueError("Only one of body or form may be supplied.")
-        timeout = request_options.get("timeout", self._default_timeout) if request_options else None
+        timeout = (request_options or {}).get("timeout", self._default_timeout)
         normalized_path = path if path.startswith("/") else f"/{path}"
         headers = self._build_headers(request_options.get("headers") if request_options else None)
         if self._requires_idempotency_key(method, normalized_path) and not self._has_header(
