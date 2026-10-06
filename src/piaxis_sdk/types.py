@@ -124,6 +124,10 @@ class PaymentCreateInput(TypedDict, total=False):
     user_info: dict[str, Any]
     products: list[dict[str, Any]]
     customer_pays_fees: bool
+    # Card checkouts only: an https:// URL or an app link such as
+    # myapp://payments/done. Piaxis appends payment_id and a status hint;
+    # confirm with get_payment before fulfilling.
+    return_url: str
 
 
 class ShopifyConnectInput(TypedDict, total=False):

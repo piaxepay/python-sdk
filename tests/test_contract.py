@@ -165,6 +165,20 @@ class ContractTests(unittest.TestCase):
         self.assertIn("X-Idempotency-Key", fake_httpx.calls[1]["headers"])
         self.assertNotIn("X-Idempotency-Key", fake_httpx.calls[2]["headers"])
 
+    def test_card_checkout_sends_return_url_and_returns_payment_url(self) -> None:
+        fixture = FIXTURES["payment_create_card"]
+        client = PiaxisClient(
+            api_key="test_api_key",
+            base_url="https://sandbox.api.gopiaxis.com/api",
+        )
+        fake_httpx = FakeHttpxClient([fixture["response"]])
+        client._http._client = fake_httpx
+
+        payment = client.create_payment(fixture["request"])
+
+        self.assertEqual(fake_httpx.calls[0]["json"], fixture["request"])
+        self.assertEqual(payment["payment_url"], "https://checkout.example.test/opaque-token")
+
     def test_escrow_helpers_match_contract(self) -> None:
         client = PiaxisClient(
             api_key="test_api_key",
