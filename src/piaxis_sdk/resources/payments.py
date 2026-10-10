@@ -3,7 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from ..http_client import PiaxisHttpClient
-from ..types import MerchantPaymentsListParams, PaymentCreateInput, PiaxisRequestOptions
+from ..types import (
+    MerchantPaymentsListParams,
+    PaymentCreateInput,
+    PiaxisRequestOptions,
+    WalletTransactionsListParams,
+)
 
 
 class PaymentsResource:
@@ -45,6 +50,20 @@ class PaymentsResource:
     ) -> Any:
         return self._http.get(
             "/merchant-payments",
+            query=params or {},
+            request_options=request_options,
+        )
+
+    def list_transactions(
+        self,
+        params: WalletTransactionsListParams | None = None,
+        *,
+        request_options: PiaxisRequestOptions | None = None,
+    ) -> Any:
+        """Every movement on the merchant account's wallets, newest first
+        (GET /api/transactions)."""
+        return self._http.get(
+            "/transactions",
             query=params or {},
             request_options=request_options,
         )

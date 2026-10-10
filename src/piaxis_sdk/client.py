@@ -21,6 +21,7 @@ from .types import (
     EscrowReleaseInput,
     FulfillEscrowTermInput,
     MerchantPaymentsListParams,
+    WalletTransactionsListParams,
     ShopifyConnectInput,
     PiaxisErrorReportingOptions,
     OAuthAuthorizeParams,
@@ -331,6 +332,14 @@ class PiaxisClient:
         request_options: PiaxisRequestOptions | None = None,
     ) -> Any:
         return self.payments.list(params, request_options=request_options)
+
+    def list_transactions(
+        self,
+        params: WalletTransactionsListParams | None = None,
+        *,
+        request_options: PiaxisRequestOptions | None = None,
+    ) -> Any:
+        return self.payments.list_transactions(params, request_options=request_options)
 
     def connect_shopify(
         self,
