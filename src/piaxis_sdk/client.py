@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from .http_client import PiaxisHttpClient
 from .resources.auth import AuthResource
@@ -47,6 +47,7 @@ class PiaxisClient:
         app_name: str | None = None,
         app_version: str | None = None,
         error_reporting: PiaxisErrorReportingOptions | None = None,
+        clock: Callable[[], float] | None = None,
     ) -> None:
         self._http = PiaxisHttpClient(
             base_url=base_url,
@@ -57,6 +58,7 @@ class PiaxisClient:
             app_name=app_name,
             app_version=app_version,
             error_reporting=error_reporting,
+            clock=clock,
         )
         self.auth = AuthResource(self._http)
         self.escrows = EscrowsResource(self._http)

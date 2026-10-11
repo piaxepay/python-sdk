@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+import time
 import traceback
 from uuid import uuid4
-from urllib.parse import urlparse, urlunparse
-from typing import Any, Mapping
+from urllib.parse import urlparse, urlsplit, urlunparse
+from typing import Any, Callable, Mapping
 
 import httpx
 
@@ -31,8 +34,10 @@ class PiaxisHttpClient:
         app_name: str | None = None,
         app_version: str | None = None,
         error_reporting: PiaxisErrorReportingOptions | None = None,
+        clock: Callable[[], float] | None = None,
     ) -> None:
         self._base_url = self._validate_base_url(base_url)
+        self._clock = clock or time.time
         self._api_key = api_key
         self._access_token = access_token
         self._piaxis_client_id = piaxis_client_id
@@ -126,7 +131,10 @@ class PiaxisHttpClient:
             request_kwargs["json"] = body
 
         try:
-            response = self._client.request(method, normalized_path, **request_kwargs)
+            request = self._client.build_request(method, normalized_path, **request_kwargs)
+            if self._api_key:
+                self._sign(request)
+            response = self._client.send(request)
 
             try:
                 payload = response.json()
@@ -144,6 +152,21 @@ class PiaxisHttpClient:
         except Exception as exc:
             self._report_sdk_error(exc, method=method, path=normalized_path)
             raise
+
+    def _sign(self, request: httpx.Request) -> None:
+        # Matches piaxis-api security/external_api_auth.py: the server signs
+        # Starlette's request.url.path (no query string) and the raw body bytes.
+        # uvicorn percent-decodes the path like httpx's url.path; Starlette then
+        # re-parses it, so a decoded "?" or "#" ends it and tab/CR/LF are dropped.
+        timestamp = str(int(self._clock()))
+        path = urlsplit(f"http://h{request.url.path}").path
+        body_hash = hashlib.sha256(request.content).hexdigest()
+        payload = "\n".join([request.method.upper(), path, timestamp, body_hash])
+        signature = hmac.new(
+            self._api_key.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256
+        ).hexdigest()
+        request.headers["X-piaxis-Timestamp"] = timestamp
+        request.headers["X-piaxis-Signature"] = f"sha256={signature}"
 
     def _build_headers(self, headers: Mapping[str, str] | None = None) -> dict[str, str]:
         merged = {

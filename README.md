@@ -54,8 +54,18 @@ Base URLs:
 `PiaxisClient.from_env()` requires either `PIAXIS_API_KEY` or `PIAXIS_ACCESS_TOKEN`.
 The SDK rejects non-HTTPS `base_url` values unless you are explicitly targeting localhost for local tests.
 
+With an API key configured, the SDK signs every request. It adds `X-piaxis-Timestamp`
+(Unix seconds) and `X-piaxis-Signature: sha256=<hex>`, an HMAC-SHA256 keyed with your
+API key over the HTTP method, the request path including `/api` (without the query
+string), the timestamp and the SHA-256 of the exact body bytes. Production rejects
+merchant payment, escrow and disbursement calls without a valid signature and a
+matching `X-piaxis-Client-ID`, so set `PIAXIS_CLIENT_ID` too and keep your server
+clock in sync: Piaxis allows 5 minutes of skew. To pin the timestamp in tests, pass
+`clock=lambda: fixed_epoch_seconds`.
+
 ```bash
 export PIAXIS_API_KEY="your_sandbox_api_key"
+export PIAXIS_CLIENT_ID="your_merchant_client_id"
 export PIAXIS_API_BASE_URL="https://sandbox.api.gopiaxis.com/api"
 ```
 
@@ -367,6 +377,7 @@ This sends:
 
 - `api-key` or `Authorization: Bearer ...`
 - `X-piaxis-Client-ID` when `PIAXIS_CLIENT_ID`/`piaxis_client_id` is configured
+- `X-piaxis-Timestamp` and `X-piaxis-Signature` when `api_key` is configured
 - `X-Idempotency-Key` on money-moving POST helpers unless you provide one
 - `x-piaxis-sdk-client: orders-service/1.4.0` when `app_name` is set
 - any extra headers you pass via `request_options`
