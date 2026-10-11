@@ -178,6 +178,8 @@ class RequestSigningTests(unittest.TestCase):
         for shop, expected in (
             ("a?b.myshopify.com", "/api/platforms/shopify/connect/a"),
             ("a#b.myshopify.com", "/api/platforms/shopify/connect/a"),
+            # Regression: U+FEFF must survive decoding (the TS SDK once stripped it).
+            ("a\ufeffb.myshopify.com", "/api/platforms/shopify/connect/a\ufeffb.myshopify.com"),
         ):
             with self.subTest(shop=shop):
                 client, fake = make_client(api_key=KEY)
@@ -188,6 +190,7 @@ class RequestSigningTests(unittest.TestCase):
 
     def test_decoded_control_and_malformed_escapes_in_path(self) -> None:
         for raw, expected in (
+            ("/payments/a%EF%BB%BFb", "/api/payments/a\ufeffb"),
             ("/payments/a%09b", "/api/payments/ab"),
             ("/payments/a%0Ab%0Dc", "/api/payments/abc"),
             ("/payments/a%zzb", "/api/payments/a%zzb"),

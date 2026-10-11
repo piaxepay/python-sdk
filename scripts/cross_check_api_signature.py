@@ -37,7 +37,9 @@ os.environ["PIAXE_TEST_MODE"] = "1"
 for name in ("SECRET_KEY", "REFRESH_TOKEN_SECRET_KEY"):
     os.environ[name] = secrets.token_urlsafe(48)
 os.environ["FERNET_KEY"] = base64.urlsafe_b64encode(os.urandom(32)).decode()
-os.chdir(tempfile.mkdtemp(prefix="piaxis-sigcheck-"))
+_ORIGINAL_CWD = os.getcwd()
+_WORKDIR = tempfile.TemporaryDirectory(prefix="piaxis-sigcheck-")
+os.chdir(_WORKDIR.name)
 
 sys.path.insert(0, str(Path(API_DIR).resolve()))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -107,9 +109,10 @@ def run_cases(port: int) -> list[tuple[str, object, object, str]]:
         ("DELETE http.request pre-encoded path", 200,
          lambda: good._http.request("DELETE", "/payments/pay%20%C3%A9%2Fx", query={"reason": "a b"})),
         ("DELETE disconnect_shopify decoded '?'", 200, lambda: good.disconnect_shopify("a?b.myshopify.com")),
+        ("DELETE disconnect_shopify BOM", 200, lambda: good.disconnect_shopify("a\ufeffb.myshopify.com")),
         ("DELETE disconnect_shopify decoded '#'", 200, lambda: good.disconnect_shopify("a#b.myshopify.com")),
         *[(f"DELETE http.request {raw}", 200, lambda raw=raw: good._http.request("DELETE", raw, query={"q": "1"}))
-          for raw in ("/payments/a%09b", "/payments/a%0Ab%0Dc", "/payments/a%zzb", "/payments/a%FFb")],
+          for raw in ("/payments/a%EF%BB%BFb", "/payments/a%09b", "/payments/a%0Ab%0Dc", "/payments/a%zzb", "/payments/a%FFb")],
         ("GET base_url /edge/v2/api prefix", 200,
          lambda: client(base_url=f"http://127.0.0.1:{port}/edge/v2/api").get_payment("pay_9")),
         ("NEG wrong key", (401, "INVALID_REQUEST_SIGNATURE"),
@@ -148,9 +151,17 @@ def main() -> int:
         finally:
             server.should_exit = True
             thread.join(timeout=10)
+            if thread.is_alive():
+                print(f"[FAIL] {http_impl} uvicorn server did not shut down")
+                failed += 1
     print("RESULT:", "FAIL" if failed else "PASS", f"({failed} mismatches)")
     return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        code = main()
+    finally:
+        os.chdir(_ORIGINAL_CWD)
+        _WORKDIR.cleanup()
+    sys.exit(code)
