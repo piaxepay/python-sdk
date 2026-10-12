@@ -22,6 +22,9 @@ This repository is the standalone Python distribution for the Piaxis partner API
 - Unit-style contract tests run against `contracts/payment-api-fixtures.json`.
 - Build validation runs through `python -m build`.
 - Metadata validation runs through `python -m twine check dist/*`.
+- Request signing has an opt-in cross-check against the API's own validator:
+  `scripts/cross_check_api_signature.py` (usage in its docstring). Run it when
+  signing or path handling changes; exit 2 means skipped, not passed.
 
 ## Release Discipline
 

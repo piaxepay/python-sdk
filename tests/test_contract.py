@@ -4,7 +4,9 @@ import json
 import sys
 import unittest
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, parse_qsl, urlparse
+
+import httpx
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR / "src"))
@@ -13,49 +15,47 @@ from piaxis_sdk import PiaxisClient, generate_pkce_pair, verify_webhook_signatur
 
 
 FIXTURES = json.loads((ROOT_DIR / "contracts" / "payment-api-fixtures.json").read_text())
+DEFAULT_BASE_URL = "https://sandbox.api.gopiaxis.com/api"
 
 
-class FakeResponse:
-    def __init__(self, payload: dict, status_code: int = 200) -> None:
-        self._payload = payload
-        self.status_code = status_code
-        self.headers: dict[str, str] = {}
+class FakeHttpxClient(httpx.Client):
+    """Real httpx.Client whose transport records each request and replays queued JSON.
 
-    def json(self) -> dict:
-        return self._payload
+    Requests go through httpx's real URL building, body serialization and any
+    SDK-applied headers, so recorded calls reflect what would be on the wire.
+    "path" is relative to the base URL path (as the SDK resources pass it).
+    """
 
-    @property
-    def text(self) -> str:
-        return json.dumps(self._payload)
-
-    @property
-    def is_error(self) -> bool:
-        return self.status_code >= 400
-
-
-class FakeHttpxClient:
-    def __init__(self, responses: list[dict]) -> None:
+    def __init__(self, responses: list[dict], base_url: str = DEFAULT_BASE_URL) -> None:
         self.responses = list(responses)
         self.calls: list[dict] = []
+        self.requests: list[httpx.Request] = []
+        self._base_path = httpx.URL(base_url).path.rstrip("/")
+        super().__init__(base_url=base_url, transport=httpx.MockTransport(self._handle))
 
-    def request(self, method, path, params=None, json=None, data=None, headers=None, timeout=None):
+    def _handle(self, request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if not path.startswith(self._base_path + "/"):
+            raise AssertionError(f"Request path {path!r} is outside base path {self._base_path!r}")
+        content_type = request.headers.get("content-type", "")
+        body = request.content
+        self.requests.append(request)
         self.calls.append(
             {
-                "method": method,
-                "path": path,
-                "params": params,
-                "json": json,
-                "data": data,
-                "headers": headers or {},
-                "timeout": timeout,
+                "method": request.method,
+                "path": path[len(self._base_path):],
+                "params": dict(request.url.params) or None,
+                "json": json.loads(body) if content_type.startswith("application/json") else None,
+                "data": dict(parse_qsl(body.decode("utf-8"), keep_blank_values=True))
+                if content_type.startswith("application/x-www-form-urlencoded")
+                else None,
+                "headers": request.headers,
+                "timeout": request.extensions.get("timeout", {}).get("read"),
             }
         )
         if not self.responses:
-            raise AssertionError(f"No fake response queued for {method} {path}")
-        return FakeResponse(self.responses.pop(0))
-
-    def close(self) -> None:
-        return None
+            raise AssertionError(f"No fake response queued for {request.method} {path}")
+        return httpx.Response(200, json=self.responses.pop(0))
 
 
 class ContractTests(unittest.TestCase):
