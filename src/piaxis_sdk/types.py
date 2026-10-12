@@ -146,6 +146,16 @@ class MerchantPaymentsListParams(TypedDict, total=False):
     offset: int
 
 
+class WalletTransactionsListParams(TypedDict, total=False):
+    transaction_type: str
+    status: str
+    currency: str
+    from_date: str
+    to_date: str
+    limit: int
+    offset: int
+
+
 class DisbursementCreateInput(TypedDict, total=False):
     recipients: list[DisbursementRecipientInput]
     currency: str

@@ -465,5 +465,73 @@ class TimeoutRegressionTests(unittest.TestCase):
             client.close()
 
 
+class ListTransactionsTests(unittest.TestCase):
+    """GET /api/transactions: the merchant's wallet history."""
+
+    def test_list_transactions_sends_given_filters_and_returns_payload(self) -> None:
+        import httpx
+
+        seen: list[httpx.Request] = []
+        payload = FIXTURES["transaction_list"]["response"]
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.append(request)
+            return httpx.Response(200, json=payload)
+
+        client = PiaxisClient(
+            api_key="test_api_key",
+            base_url="https://sandbox.api.gopiaxis.com/api",
+        )
+        client._http.close()
+        client._http._client = httpx.Client(
+            base_url=client._http._base_url, transport=httpx.MockTransport(handler)
+        )
+        try:
+            listing = client.list_transactions(
+                {
+                    "transaction_type": "merchant_credit",
+                    "status": "completed",
+                    "currency": "UGX",
+                    "from_date": "2026-01-01T00:00:00Z",
+                    "to_date": "2026-01-31T23:59:59Z",
+                    "limit": 50,
+                    "offset": 0,
+                }
+            )
+            client.payments.list_transactions({"currency": "USD", "limit": 10, "status": None})
+            client.list_transactions()
+        finally:
+            client.close()
+
+        self.assertEqual([r.method for r in seen], ["GET", "GET", "GET"])
+        self.assertEqual(
+            {str(r.url.copy_with(query=None)) for r in seen},
+            {"https://sandbox.api.gopiaxis.com/api/transactions"},
+        )
+        self.assertEqual(
+            parse_qs(seen[0].url.query.decode()),
+            {
+                "transaction_type": ["merchant_credit"],
+                "status": ["completed"],
+                "currency": ["UGX"],
+                "from_date": ["2026-01-01T00:00:00Z"],
+                "to_date": ["2026-01-31T23:59:59Z"],
+                "limit": ["50"],
+                "offset": ["0"],
+            },
+        )
+        # None filters are omitted rather than sent as "None".
+        self.assertEqual(parse_qs(seen[1].url.query.decode()), {"currency": ["USD"], "limit": ["10"]})
+        self.assertEqual(seen[2].url.query, b"")
+        self.assertEqual(seen[0].headers.get("api-key"), "test_api_key")
+        self.assertIsNone(seen[0].headers.get("x-idempotency-key"))
+
+        self.assertEqual(listing, payload)
+        credit = listing["results"][0]
+        self.assertEqual(credit["transaction_type"], "merchant_credit")
+        self.assertEqual((credit["net_amount"], credit["fee_amount"]), ("48750.00", "1250.00"))
+        self.assertIsNone(listing["results"][1]["net_amount"])
+
+
 if __name__ == "__main__":
     unittest.main()
